@@ -25,6 +25,10 @@ jobs:
     needs: check-environment
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      sqs_queue_url: ${{ steps.terraform-outputs.outputs.sqs_queue_url }}
+      sqs_queue_arn: ${{ steps.terraform-outputs.outputs.sqs_queue_arn }}
+      lambda_role_arn: ${{ steps.terraform-outputs.outputs.lambda_role_arn }}
 
     steps:
       - name: Checkout code
@@ -70,25 +74,22 @@ jobs:
         run: terraform apply -auto-approve tfplan
 
       - name: Export Terraform Outputs
+        id: terraform-outputs
         working-directory: ./terraform
         run: |
-          echo "SQS_QUEUE_URL<<EOF" >> $GITHUB_ENV
-          terraform output -raw sqs_queue_url >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          
-          echo "SQS_QUEUE_ARN<<EOF" >> $GITHUB_ENV
-          terraform output -raw sqs_queue_arn >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          
-          echo "LAMBDA_ROLE_ARN<<EOF" >> $GITHUB_ENV
-          terraform output -raw lambda_execution_role_arn >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          echo "sqs_queue_url=$(terraform output -raw sqs_queue_url)" >> $GITHUB_OUTPUT
+          echo "sqs_queue_arn=$(terraform output -raw sqs_queue_arn)" >> $GITHUB_OUTPUT
+          echo "lambda_role_arn=$(terraform output -raw lambda_execution_role_arn)" >> $GITHUB_OUTPUT
 
   build-deploy-lambda:
     name: Build and Deploy Lambda
     needs: terraform
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      sqs_queue_url: ${{ needs.terraform.outputs.sqs_queue_url }}
+      sqs_queue_arn: ${{ needs.terraform.outputs.sqs_queue_arn }}
+      lambda_role_arn: ${{ needs.terraform.outputs.lambda_role_arn }}
 
     steps:
       - name: Checkout code
@@ -131,11 +132,11 @@ jobs:
             --function-name quarkus-lambda-build \
             --zip-file fileb://build/function.zip \
             --handler io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest \
-            --runtime java11 \
+            --runtime java17 \
             --timeout 30 \
             --memory-size 512 \
-            --role ${{ env.LAMBDA_ROLE_ARN }} \
-            --environment "Variables={SQS_QUEUE_URL=${{ env.SQS_QUEUE_URL }}}"
+            --role "${{ steps.terraform-outputs.outputs.lambda_role_arn }}" \
+            --environment "Variables={SQS_QUEUE_URL=${{ steps.terraform-outputs.outputs.sqs_queue_url }}}"
 
       - name: Update Lambda function
         if: steps.check-lambda.outputs.lambda_exists == 'true'
@@ -148,7 +149,7 @@ jobs:
         run: |
           aws lambda update-function-configuration \
             --function-name quarkus-lambda-build \
-            --environment "Variables={SQS_QUEUE_URL=${{ env.SQS_QUEUE_URL }}}"
+            --environment "Variables={SQS_QUEUE_URL=${{ steps.terraform-outputs.outputs.sqs_queue_url }}}"
 
       - name: Create SQS event source mapping
         run: |
