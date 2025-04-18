@@ -1,0 +1,162 @@
+name: Deploy Infrastructure and Lambda
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# Only run in production environment
+jobs:
+  check-environment:
+    name: Check Environment
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Environment Check
+        run: echo "Running in production environment"
+
+  terraform:
+    name: Deploy Infrastructure
+    needs: check-environment
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Format
+        working-directory: ./terraform
+        run: terraform fmt -check
+
+      - name: Create terraform.tfvars
+        working-directory: ./terraform
+        run: |
+          cat > terraform.tfvars << EOF
+          aws_account_id = "${{ secrets.AWS_ACCOUNT_ID }}"
+          github_repository = "${{ github.repository }}"
+          EOF
+
+      - name: Terraform Validate
+        working-directory: ./terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Export Terraform Outputs
+        working-directory: ./terraform
+        run: |
+          echo "SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)" >> $GITHUB_ENV
+          echo "SQS_QUEUE_ARN=$(terraform output -raw sqs_queue_arn)" >> $GITHUB_ENV
+          echo "LAMBDA_ROLE_ARN=$(terraform output -raw lambda_execution_role_arn)" >> $GITHUB_ENV
+
+  build-deploy-lambda:
+    name: Build and Deploy Lambda
+    needs: terraform
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: us-east-1
+
+      - name: Check if Lambda function exists
+        id: check-lambda
+        run: |
+          if aws lambda get-function --function-name quarkus-lambda-build &> /dev/null; then
+            echo "Lambda function exists, will update"
+            echo "lambda_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Lambda function does not exist, will create"
+            echo "lambda_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Lambda function
+        if: steps.check-lambda.outputs.lambda_exists == 'false'
+        run: |
+          aws lambda create-function \
+            --function-name quarkus-lambda-build \
+            --zip-file fileb://build/function.zip \
+            --handler io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest \
+            --runtime java11 \
+            --timeout 30 \
+            --memory-size 512 \
+            --role ${{ env.LAMBDA_ROLE_ARN }} \
+            --environment "Variables={SQS_QUEUE_URL=${{ env.SQS_QUEUE_URL }}}"
+
+      - name: Update Lambda function
+        if: steps.check-lambda.outputs.lambda_exists == 'true'
+        run: |
+          aws lambda update-function-code \
+            --function-name quarkus-lambda-build \
+            --zip-file fileb://build/function.zip
+
+      - name: Update Lambda configuration
+        run: |
+          aws lambda update-function-configuration \
+            --function-name quarkus-lambda-build \
+            --environment "Variables={SQS_QUEUE_URL=${{ env.SQS_QUEUE_URL }}}"
+
+      - name: Create SQS event source mapping
+        run: |
+          # Check if event source mapping exists
+          MAPPINGS=$(aws lambda list-event-source-mappings \
+            --function-name quarkus-lambda-build \
+            --event-source-arn ${{ env.SQS_QUEUE_ARN }} \
+            --query 'EventSourceMappings[0].UUID' \
+            --output text)
+          
+          if [ "$MAPPINGS" == "None" ] || [ -z "$MAPPINGS" ]; then
+            echo "Creating new event source mapping"
+            aws lambda create-event-source-mapping \
+              --function-name quarkus-lambda-build \
+              --event-source-arn ${{ env.SQS_QUEUE_ARN }} \
+              --batch-size 10
+          else
+            echo "Event source mapping already exists"
+          fi
