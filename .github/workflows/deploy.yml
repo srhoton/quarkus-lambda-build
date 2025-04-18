@@ -131,7 +131,7 @@ jobs:
             --function-name quarkus-lambda-build \
             --zip-file fileb://build/function.zip \
             --handler io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest \
-            --runtime java11 \
+            --runtime java17 \
             --timeout 30 \
             --memory-size 512 \
             --role ${{ env.LAMBDA_ROLE_ARN }} \
