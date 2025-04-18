@@ -1,6 +1,6 @@
 resource "aws_iam_role" "lambda_execution_role" {
   name = "lambda-execution-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -32,7 +32,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
 resource "aws_iam_policy" "lambda_sqs_policy" {
   name        = "lambda-sqs-policy"
   description = "IAM policy for Lambda to access SQS"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
