@@ -72,9 +72,12 @@ jobs:
       - name: Export Terraform Outputs
         working-directory: ./terraform
         run: |
-          echo "SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)" >> "$GITHUB_ENV"
-          echo "SQS_QUEUE_ARN=$(terraform output -raw sqs_queue_arn)" >> "$GITHUB_ENV"
-          echo "LAMBDA_ROLE_ARN=$(terraform output -raw lambda_execution_role_arn)" >> "$GITHUB_ENV"
+          SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)
+          SQS_QUEUE_ARN=$(terraform output -raw sqs_queue_arn)
+          LAMBDA_ROLE_ARN=$(terraform output -raw lambda_execution_role_arn)
+          echo "SQS_QUEUE_URL=$SQS_QUEUE_URL" >> $GITHUB_ENV
+          echo "SQS_QUEUE_ARN=$SQS_QUEUE_ARN" >> $GITHUB_ENV
+          echo "LAMBDA_ROLE_ARN=$LAMBDA_ROLE_ARN" >> $GITHUB_ENV
 
   build-deploy-lambda:
     name: Build and Deploy Lambda
