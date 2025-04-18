@@ -1,6 +1,6 @@
 resource "aws_iam_role" "github_actions_role" {
   name = "github-actions-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -34,7 +34,7 @@ resource "aws_iam_role" "github_actions_role" {
 resource "aws_iam_policy" "github_actions_policy" {
   name        = "github-actions-policy"
   description = "IAM policy for GitHub Actions to deploy infrastructure and Lambda"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -45,7 +45,7 @@ resource "aws_iam_policy" "github_actions_policy" {
           "s3:PutObject",
           "s3:ListBucket"
         ]
-        Effect   = "Allow"
+        Effect = "Allow"
         Resource = [
           "arn:aws:s3:::srhoton-tfstate",
           "arn:aws:s3:::srhoton-tfstate/quarkus-lambda-build/*"

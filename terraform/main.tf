@@ -16,7 +16,7 @@ resource "aws_sqs_queue" "quarkus_lambda_queue" {
   max_message_size          = 262144
   message_retention_seconds = 345600 # 4 days
   receive_wait_time_seconds = 0
-  
+
   tags = {
     Name        = "quarkus-lambda-build"
     Environment = "dev"
