@@ -83,9 +83,9 @@ jobs:
           terraform output -raw sqs_queue_arn > sqs_arn.txt
           terraform output -raw lambda_execution_role_arn > lambda_role.txt
 
-          terraform output -raw sqs_queue_url
-          terraform output -raw sqs_queue_arn
-          terraform output -raw lambda_execution_role_arn
+          echo "$(terraform output -raw sqs_queue_url)\n"
+          echo "$(terraform output -raw sqs_queue_arn)\n"
+          echo "$(terraform output -raw lambda_execution_role_arn)\n"
 
           # Read from files and set as outputs
           echo "sqs_queue_url=$(cat sqs_url.txt)" >> $GITHUB_OUTPUT
