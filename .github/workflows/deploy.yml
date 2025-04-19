@@ -78,29 +78,21 @@ jobs:
         id: terraform-outputs
         working-directory: ./terraform
         run: |
-          # Debug the raw outputs
-          echo "Raw SQS URL output:"
-          terraform output sqs_queue_url
-          echo "Raw SQS ARN output:"
-          terraform output sqs_queue_arn
-          echo "Raw Lambda role ARN output:"
-          terraform output lambda_execution_role_arn
+          # Store outputs in files first
+          terraform output -raw sqs_queue_url > sqs_url.txt
+          terraform output -raw sqs_queue_arn > sqs_arn.txt
+          terraform output -raw lambda_execution_role_arn > lambda_role.txt
           
-          # Try with explicit quotes
-          echo "sqs_queue_url=\"$(terraform output -raw sqs_queue_url)\"" >> "$GITHUB_OUTPUT"
-          echo "sqs_queue_arn=\"$(terraform output -raw sqs_queue_arn)\"" >> "$GITHUB_OUTPUT"
-          echo "lambda_role_arn=\"$(terraform output -raw lambda_execution_role_arn)\"" >> "$GITHUB_OUTPUT"
+          # Read from files and set as outputs
+          echo "sqs_queue_url=$(cat sqs_url.txt)" >> $GITHUB_OUTPUT
+          echo "sqs_queue_arn=$(cat sqs_arn.txt)" >> $GITHUB_OUTPUT
+          echo "lambda_role_arn=$(cat lambda_role.txt)" >> $GITHUB_OUTPUT
 
   build-deploy-lambda:
     name: Build and Deploy Lambda
     needs: terraform
     runs-on: ubuntu-latest
     environment: production
-    outputs:
-      sqs_queue_url: ${{ needs.terraform.outputs.sqs_queue_url }}
-      sqs_queue_arn: ${{ needs.terraform.outputs.sqs_queue_arn }}
-      lambda_role_arn: ${{ needs.terraform.outputs.lambda_role_arn }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -124,6 +116,12 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-role
           aws-region: us-east-1
 
+      - name: Debug Terraform outputs
+        run: |
+          echo "SQS Queue URL: ${{ needs.terraform.outputs.sqs_queue_url }}"
+          echo "SQS Queue ARN: ${{ needs.terraform.outputs.sqs_queue_arn }}"
+          echo "Lambda Role ARN: ${{ needs.terraform.outputs.lambda_role_arn }}"
+
       - name: Check if Lambda function exists
         id: check-lambda
         run: |
@@ -138,14 +136,9 @@ jobs:
       - name: Create Lambda function
         if: steps.check-lambda.outputs.lambda_exists == 'false'
         run: |
-          # Get values directly from Terraform
-          cd ./terraform
-          LAMBDA_ROLE_ARN=$(terraform output -raw lambda_execution_role_arn)
-          SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)
-          cd ..
-          
-          echo "Using Lambda Role ARN: $LAMBDA_ROLE_ARN"
-          echo "Using SQS Queue URL: $SQS_QUEUE_URL"
+          # Store values in variables to avoid issues with special characters
+          LAMBDA_ROLE="${{ needs.terraform.outputs.lambda_role_arn }}"
+          SQS_URL="${{ needs.terraform.outputs.sqs_queue_url }}"
           
           aws lambda create-function \
             --function-name quarkus-lambda-build \
@@ -154,8 +147,8 @@ jobs:
             --runtime java17 \
             --timeout 30 \
             --memory-size 512 \
-            --role "$LAMBDA_ROLE_ARN" \
-            --environment "Variables={SQS_QUEUE_URL=$SQS_QUEUE_URL}"
+            --role "$LAMBDA_ROLE" \
+            --environment "Variables={SQS_QUEUE_URL=$SQS_URL}"
 
       - name: Update Lambda function
         if: steps.check-lambda.outputs.lambda_exists == 'true'
@@ -166,30 +159,22 @@ jobs:
 
       - name: Update Lambda configuration
         run: |
-          # Get values directly from Terraform
-          cd ./terraform
-          SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)
-          cd ..
-          
-          echo "Using SQS Queue URL: $SQS_QUEUE_URL"
+          # Store value in variable to avoid issues with special characters
+          SQS_URL="${{ needs.terraform.outputs.sqs_queue_url }}"
           
           aws lambda update-function-configuration \
             --function-name quarkus-lambda-build \
-            --environment "Variables={SQS_QUEUE_URL=$SQS_QUEUE_URL}"
+            --environment "Variables={SQS_QUEUE_URL=$SQS_URL}"
 
       - name: Create SQS event source mapping
         run: |
-          # Get values directly from Terraform
-          cd ./terraform
-          SQS_QUEUE_ARN=$(terraform output -raw sqs_queue_arn)
-          cd ..
-          
-          echo "Using SQS Queue ARN: $SQS_QUEUE_ARN"
+          # Store value in variable to avoid issues with special characters
+          SQS_ARN="${{ needs.terraform.outputs.sqs_queue_arn }}"
           
           # Check if event source mapping exists
           MAPPINGS=$(aws lambda list-event-source-mappings \
             --function-name quarkus-lambda-build \
-            --event-source-arn "$SQS_QUEUE_ARN" \
+            --event-source-arn "$SQS_ARN" \
             --query 'EventSourceMappings[0].UUID' \
             --output text)
 
@@ -197,7 +182,7 @@ jobs:
             echo "Creating new event source mapping"
             aws lambda create-event-source-mapping \
               --function-name quarkus-lambda-build \
-              --event-source-arn "$SQS_QUEUE_ARN" \
+              --event-source-arn "$SQS_ARN" \
               --batch-size 10
           else
             echo "Event source mapping already exists"
