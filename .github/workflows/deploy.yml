@@ -77,6 +77,8 @@ jobs:
         id: terraform-outputs
         working-directory: ./terraform
         run: |
+          echo "Exporting Terraform outputs"
+          echo `terraform output -raw sqs_queue_url`
           SQS_URL=$(terraform output -raw sqs_queue_url)
           SQS_ARN=$(terraform output -raw sqs_queue_arn)
           ROLE_ARN=$(terraform output -raw lambda_execution_role_arn)
