@@ -78,9 +78,18 @@ jobs:
         id: terraform-outputs
         working-directory: ./terraform
         run: |
-          echo "sqs_queue_url=$(terraform output -raw sqs_queue_url)" >> "$GITHUB_OUTPUT"
-          echo "sqs_queue_arn=$(terraform output -raw sqs_queue_arn)" >> "$GITHUB_OUTPUT"
-          echo "lambda_role_arn=$(terraform output -raw lambda_execution_role_arn)" >> "$GITHUB_OUTPUT"
+          # Debug the raw outputs
+          echo "Raw SQS URL output:"
+          terraform output sqs_queue_url
+          echo "Raw SQS ARN output:"
+          terraform output sqs_queue_arn
+          echo "Raw Lambda role ARN output:"
+          terraform output lambda_execution_role_arn
+          
+          # Try with explicit quotes
+          echo "sqs_queue_url=\"$(terraform output -raw sqs_queue_url)\"" >> "$GITHUB_OUTPUT"
+          echo "sqs_queue_arn=\"$(terraform output -raw sqs_queue_arn)\"" >> "$GITHUB_OUTPUT"
+          echo "lambda_role_arn=\"$(terraform output -raw lambda_execution_role_arn)\"" >> "$GITHUB_OUTPUT"
 
   build-deploy-lambda:
     name: Build and Deploy Lambda
@@ -126,18 +135,18 @@ jobs:
             echo "lambda_exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Debug Terraform outputs
-        run: |
-          echo "SQS Queue URL: ${{ needs.terraform.outputs.sqs_queue_url }}"
-          echo "SQS Queue ARN: ${{ needs.terraform.outputs.sqs_queue_arn }}"
-          echo "Lambda Role ARN: ${{ needs.terraform.outputs.lambda_role_arn }}"
-          
       - name: Create Lambda function
         if: steps.check-lambda.outputs.lambda_exists == 'false'
-        env:
-          LAMBDA_ROLE_ARN: ${{ needs.terraform.outputs.lambda_role_arn }}
-          SQS_QUEUE_URL: ${{ needs.terraform.outputs.sqs_queue_url }}
         run: |
+          # Get values directly from Terraform
+          cd ./terraform
+          LAMBDA_ROLE_ARN=$(terraform output -raw lambda_execution_role_arn)
+          SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)
+          cd ..
+          
+          echo "Using Lambda Role ARN: $LAMBDA_ROLE_ARN"
+          echo "Using SQS Queue URL: $SQS_QUEUE_URL"
+          
           aws lambda create-function \
             --function-name quarkus-lambda-build \
             --zip-file fileb://build/function.zip \
@@ -145,8 +154,8 @@ jobs:
             --runtime java17 \
             --timeout 30 \
             --memory-size 512 \
-            --role "${LAMBDA_ROLE_ARN}" \
-            --environment "Variables={SQS_QUEUE_URL=${SQS_QUEUE_URL}}"
+            --role "$LAMBDA_ROLE_ARN" \
+            --environment "Variables={SQS_QUEUE_URL=$SQS_QUEUE_URL}"
 
       - name: Update Lambda function
         if: steps.check-lambda.outputs.lambda_exists == 'true'
@@ -156,21 +165,31 @@ jobs:
             --zip-file fileb://build/function.zip
 
       - name: Update Lambda configuration
-        env:
-          SQS_QUEUE_URL: ${{ needs.terraform.outputs.sqs_queue_url }}
         run: |
+          # Get values directly from Terraform
+          cd ./terraform
+          SQS_QUEUE_URL=$(terraform output -raw sqs_queue_url)
+          cd ..
+          
+          echo "Using SQS Queue URL: $SQS_QUEUE_URL"
+          
           aws lambda update-function-configuration \
             --function-name quarkus-lambda-build \
-            --environment "Variables={SQS_QUEUE_URL=${SQS_QUEUE_URL}}"
+            --environment "Variables={SQS_QUEUE_URL=$SQS_QUEUE_URL}"
 
       - name: Create SQS event source mapping
-        env:
-          SQS_QUEUE_ARN: ${{ needs.terraform.outputs.sqs_queue_arn }}
         run: |
+          # Get values directly from Terraform
+          cd ./terraform
+          SQS_QUEUE_ARN=$(terraform output -raw sqs_queue_arn)
+          cd ..
+          
+          echo "Using SQS Queue ARN: $SQS_QUEUE_ARN"
+          
           # Check if event source mapping exists
           MAPPINGS=$(aws lambda list-event-source-mappings \
             --function-name quarkus-lambda-build \
-            --event-source-arn "${SQS_QUEUE_ARN}" \
+            --event-source-arn "$SQS_QUEUE_ARN" \
             --query 'EventSourceMappings[0].UUID' \
             --output text)
 
@@ -178,7 +197,7 @@ jobs:
             echo "Creating new event source mapping"
             aws lambda create-event-source-mapping \
               --function-name quarkus-lambda-build \
-              --event-source-arn "${SQS_QUEUE_ARN}" \
+              --event-source-arn "$SQS_QUEUE_ARN" \
               --batch-size 10
           else
             echo "Event source mapping already exists"
