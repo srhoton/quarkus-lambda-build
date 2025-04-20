@@ -91,7 +91,7 @@ jobs:
           echo "sqs_queue_url=$(cat sqs_url.txt)" >> $GITHUB_OUTPUT
           echo "sqs_queue_arn=$(cat sqs_arn.txt)" >> $GITHUB_OUTPUT
           echo "lambda_role_arn=$(cat lambda_role.txt)" >> $GITHUB_OUTPUT
-          echo "$GITHUB_OUTPUT"
+          echo `cat $GITHUB_OUTPUT`
 
   build-deploy-lambda:
     name: Build and Deploy Lambda
@@ -123,6 +123,7 @@ jobs:
 
       - name: Debug Terraform outputs
         run: |
+          echo `cat $GITHUB_OUTPUT`
           echo "SQS Queue URL: ${{ needs.terraform.outputs.sqs_queue_url }}"
           echo "SQS Queue ARN: ${{ needs.terraform.outputs.sqs_queue_arn }}"
           echo "Lambda Role ARN: ${{ needs.terraform.outputs.lambda_role_arn }}"
