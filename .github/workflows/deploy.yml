@@ -170,6 +170,12 @@ jobs:
             --function-name quarkus-lambda-build \
             --zip-file fileb://build/function.zip
 
+      - name: Wait for Lambda update to complete
+        run: |
+          echo "Waiting for Lambda function update to complete..."
+          aws lambda wait function-updated --function-name quarkus-lambda-build
+          echo "Lambda function update completed"
+
       - name: Update Lambda configuration
         run: |
           aws lambda update-function-configuration \
