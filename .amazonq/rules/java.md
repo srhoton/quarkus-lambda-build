@@ -23,6 +23,17 @@
        }
    }
    ```
+7. **Enforce Pre-Commit Formatting**: Configure git hooks to require Spotless formatting to pass before committing Java files.
+   ```bash
+   # In .git/hooks/pre-commit (make executable with chmod +x)
+   #!/bin/sh
+   echo "Running Spotless check..."
+   ./gradlew spotlessCheck
+   if [ $? -ne 0 ]; then
+     echo "Spotless check failed. Run './gradlew spotlessApply' to fix formatting issues."
+     exit 1
+   fi
+   ```
 
 ## Gradle Build System Best Practices
 1. **Always Use Gradle**: Prefer Gradle over Maven for all Quarkus projects for improved performance and flexibility.
