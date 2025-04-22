@@ -6,6 +6,34 @@
 3. **Configure IDE Integration**: Set up real-time linting in your IDE with Quarkus and MicroProfile plugins.
 4. **Implement CI/CD Linting**: Include automated linting in your build pipeline with appropriate failure thresholds.
 5. **Customize for GraalVM Compatibility**: Add custom rules to catch patterns incompatible with native compilation.
+6. **Use Spotless for Code Formatting**: Configure Spotless Gradle plugin for consistent code style, import ordering, and whitespace management.
+   ```gradle
+   plugins {
+       id 'com.diffplug.spotless' version '6.25.0'
+   }
+   
+   spotless {
+       java {
+           googleJavaFormat()
+           importOrder('java', 'javax', 'org', 'com', '')
+           removeUnusedImports()
+           trimTrailingWhitespace()
+           indentWithSpaces(4)
+           endWithNewline()
+       }
+   }
+   ```
+7. **Enforce Pre-Commit Formatting**: Configure git hooks to require Spotless formatting to pass before committing Java files.
+   ```bash
+   # In .git/hooks/pre-commit (make executable with chmod +x)
+   #!/bin/sh
+   echo "Running Spotless check..."
+   ./gradlew spotlessCheck
+   if [ $? -ne 0 ]; then
+     echo "Spotless check failed. Run './gradlew spotlessApply' to fix formatting issues."
+     exit 1
+   fi
+   ```
 
 ## Gradle Build System Best Practices
 1. **Always Use Gradle**: Prefer Gradle over Maven for all Quarkus projects for improved performance and flexibility.

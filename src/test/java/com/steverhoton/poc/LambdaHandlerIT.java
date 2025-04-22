@@ -1,9 +1,9 @@
 package com.steverhoton.poc;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.Disabled;
+
+import io.quarkus.test.junit.QuarkusIntegrationTest;
 
 @Disabled("Integration tests require a running Lambda environment")
 @QuarkusIntegrationTest
-public class LambdaHandlerIT extends LambdaHandlerTest {
-}
+public class LambdaHandlerIT extends LambdaHandlerTest {}
