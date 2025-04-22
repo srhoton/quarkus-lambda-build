@@ -10,10 +10,24 @@ import java.util.Map;
 
 /**
  * Lambda handler that processes SQS events and dumps their content to standard output.
+ * This handler demonstrates integration with AWS SQS for event-driven architectures.
+ * 
+ * <p>The processor extracts and logs details from each SQS message, including message ID,
+ * receipt handle, source information, body content, and any message attributes.</p>
+ * 
+ * <p>This implementation is optimized for Quarkus' fast startup and low memory footprint,
+ * making it suitable for serverless environments.</p>
  */
 @Named("sqs-processor")
 public class SqsEventProcessor implements RequestHandler<SQSEvent, Void> {
 
+    /**
+     * Handles SQS event messages by processing and logging their contents.
+     * 
+     * @param event The SQS event containing one or more messages
+     * @param context The Lambda execution context
+     * @return null as this handler doesn't produce a meaningful return value
+     */
     @Override
     public Void handleRequest(SQSEvent event, Context context) {
         System.out.println("SQS Event received with " + event.getRecords().size() + " records");
