@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'io.quarkus'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 repositories {
@@ -31,5 +32,26 @@ compileJava {
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+spotless {
+    java {
+        // Apply Google's Java formatter
+        googleJavaFormat()
+        
+        // Import order
+        importOrder('java', 'javax', 'org', 'com', '')
+        
+        // Remove unused imports
+        removeUnusedImports()
+        
+        // Apply custom formatting rules
+        trimTrailingWhitespace()
+        indentWithSpaces(4)
+        endWithNewline()
+        
+        // Enforce Quarkus-specific patterns
+        // Custom rules can be added here as needed
+    }
 }
 
