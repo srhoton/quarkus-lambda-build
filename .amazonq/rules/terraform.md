@@ -9,41 +9,35 @@
 - Validate with `terraform validate` before applying changes
 - Establish a .tflint.hcl configuration file for project-specific rules
 - Integrate linting checks in CI/CD pipelines
+- Enforce pre-commit validation with git hooks to require `terraform fmt` and `terraform validate` to pass before committing
 
-## Directory Structure
-- All Terraform code must be stored in the `terraform` directory at the root of the project
-- Maintain a logical module structure within this directory
+```bash
+# In .git/hooks/pre-commit (make executable with chmod +x)
+#!/bin/sh
 
-## State Management
-- Terraform state must be managed remotely in AWS S3
-- Use the `srhoton-tfstate` bucket for all state files
-- Store state files in the `quarkus-lambda-build` folder within the bucket
-- Implement state locking using DynamoDB when working in teams
+# Find all Terraform files that are staged for commit
+files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.tf$')
 
-## Region Requirements
-- All AWS resources must be provisioned in the `us-east-1` region
-- Always specify the region explicitly in provider configurations
+if [ -n "$files" ]; then
+  echo "Running Terraform format check..."
+  
+  # Format check
+  terraform fmt -check -recursive ./terraform
+  if [ $? -ne 0 ]; then
+    echo "Terraform format check failed. Run 'terraform fmt -recursive ./terraform' to fix formatting issues."
+    exit 1
+  fi
+  
+  # Validation check
+  echo "Running Terraform validation..."
+  cd ./terraform
+  terraform validate
+  if [ $? -ne 0 ]; then
+    echo "Terraform validation failed. Please fix the validation errors before committing."
+    exit 1
+  fi
+  cd ..
+fi
 
-## Best Practices
-- Use variables for reusable values
-- Implement proper tagging for all resources
-- Leverage modules for reusable components
-- Use workspaces for environment separation
-- Document all modules with README files
-- Follow a consistent naming convention for resources
-
-## Configuration Example
-
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
-
-terraform {
-  backend "s3" {
-    bucket = "srhoton-tfstate"
-    key    = "quarkus-lambda-build/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
+exit 0
 ```
