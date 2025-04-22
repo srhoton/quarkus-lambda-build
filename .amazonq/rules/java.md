@@ -55,3 +55,13 @@
 3. **Understanding Classpath Resources**: Native images handle resources differently than JVM mode.
 4. **Configuring Hibernate Correctly**: Use recommended settings for Hibernate ORM with Quarkus.
 5. **Gradle Plugin Misconfigurations**: Ensure proper configuration of the Quarkus Gradle plugin parameters.
+
+## Documentation Best Practices
+1. **Use Markdown for Technical Docs**: Prefer Markdown over Asciidoc for simpler, widely-supported documentation that integrates well with code repositories.
+2. **Document Extension Usage**: Clearly document which Quarkus extensions are used and their configuration options.
+3. **Include Gradle Setup Instructions**: Provide complete Gradle configuration examples for project setup.
+4. **Leverage Javadoc for API Documentation**: Use comprehensive Javadoc comments with Quarkus-specific annotations to generate detailed API documentation and OpenAPI specifications.
+5. **Document Native Image Considerations**: Highlight any special considerations for native compilation.
+6. **Maintain Architecture Diagrams**: Keep up-to-date diagrams showing integration with other microservices.
+7. **Version Documentation with Code**: Store documentation in the same repository to keep it in sync with code changes.
+8. **Include Performance Metrics**: Document expected performance characteristics and memory footprint.
