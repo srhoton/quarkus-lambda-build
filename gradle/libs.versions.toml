@@ -1,0 +1,18 @@
+[versions]
+quarkus = "3.9.0"
+awslambda-events = "3.11.3"
+netty-resolver = "4.1.107.Final"
+mockito = "5.8.0"
+
+[libraries]
+quarkus-bom = { module = "io.quarkus:quarkus-bom", version.ref = "quarkus" }
+quarkus-amazon-lambda = { module = "io.quarkus:quarkus-amazon-lambda" }
+awslambda-events = { module = "com.amazonaws:aws-lambda-java-events", version.ref = "awslambda-events" }
+netty-resolver-macos = { module = "io.netty:netty-resolver-dns-native-macos", version.ref = "netty-resolver" }
+quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }
+rest-assured = { module = "io.rest-assured:rest-assured" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+
+[plugins]
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }
+spotless = { id = "com.diffplug.spotless", version = "6.25.0" }
