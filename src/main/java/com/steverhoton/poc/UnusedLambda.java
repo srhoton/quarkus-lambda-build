@@ -1,9 +1,5 @@
 package com.steverhoton.poc;
 
-import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.RequestHandler;
-
-import jakarta.inject.Inject;
 import jakarta.inject.Named;
 
 /**
@@ -16,21 +12,17 @@ import jakarta.inject.Named;
  * @see TestLambda For the primary Lambda implementation
  */
 @Named("unused")
-public class UnusedLambda implements RequestHandler<InputObject, OutputObject> {
-
-  /** The service responsible for processing the input. */
-  @Inject ProcessingService service;
+public class UnusedLambda extends AbstractLambdaHandler {
 
   /**
-   * Handles the Lambda function request by throwing an exception.
+   * Processes the input object by throwing an exception.
    *
    * @param input The input object containing name and greeting
-   * @param context The Lambda execution context
    * @return This method does not return normally as it throws an exception
    * @throws RuntimeException Always thrown to indicate this Lambda is not meant to be used
    */
   @Override
-  public OutputObject handleRequest(InputObject input, Context context) {
+  protected OutputObject processInput(InputObject input) {
     throw new RuntimeException("Should be unused");
   }
 }
